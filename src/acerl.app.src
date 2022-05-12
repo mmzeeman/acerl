@@ -1,0 +1,15 @@
+{application, acerl,
+ [
+  {description, "Acerl"},
+  {vsn, "0.0.1"},
+  {modules, [acerl]},
+  {registered, []},
+  {licenses, ["Apache"]},
+  {links, [{"Github", "https://github.com/mmzeeman/acerl"}]},
+  {include_files, ["Makefile"]},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {env, []}
+ ]}.
