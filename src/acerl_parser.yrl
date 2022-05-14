@@ -30,6 +30,8 @@ Nonterminals
     Scalar
     Array
     Object
+    ObjectItems
+    ObjectItem
     Set
     ArrayCompr
     ObjectCompr
@@ -58,6 +60,8 @@ Terminals
     comma
     boolean
     null
+    colon
+    set
 
 .
 
@@ -161,3 +165,36 @@ Scalar -> null.
 
 %% array           = "[" term { "," term } "]"
 Array -> lsbrace Terms rsbrace.
+
+
+%% object          = "{" object-item { "," object-item } "}"
+%% object-item     = ( scalar | ref | var ) ":" term
+Object -> lcbrace ObjectItems rcbrace. 
+ObjectItems -> ObjectItem.
+ObjectItems -> ObjectItems comma ObjectItem.
+
+ObjectItem -> Scalar colon Term.
+ObjectItem -> Ref colon Term.
+ObjectItem -> var colon Term.
+
+%% set             = empty-set | non-empty-set
+%% non-empty-set   = "{" term { "," term } "}"
+%% empty-set       = "set(" ")"
+
+Set -> set rparen.
+Set -> lcbrace Terms rcbrace.
+
+%% object-compr    = "{" object-item "|" rule-body "}"
+ObjectCompr -> lcbrace ObjectItem rcbrace.
+ObjectCompr -> lcbrace RuleBody rcbrace.
+
+%% array-compr     = "[" term "|" rule-body "]"
+ArrayCompr -> lsbrace Term rsbrace.
+ArrayCompr -> lsbrace RuleBody rsbrace.
+
+%% set-compr       = "{" term "|" rule-body "}"
+SetCompr -> lcbrace Term rcbrace.
+SetCompr -> lcbrace RuleBody rcbrace.
+
+%% expr-call       = var [ "." var ] "(" [ expr { "," expr } ] ")"
+ExprCall -> var. %% [TODO]
