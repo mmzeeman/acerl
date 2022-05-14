@@ -21,7 +21,7 @@ scan(SourceRef, Source) when is_list(Source) ->
 
 scan(<<>>, Scanned, Pos, ScanState) when ScanState =:= in_source orelse ScanState =:= in_comment ->
     %% [TODO] Some post precessing
-    {ok, lists:reverse([{eof, Pos} | Scanned])};
+    {ok, lists:reverse([{'$eof', Pos} | Scanned])};
 
 %% Booleans
 scan(<<"true", Rest/binary>>, Scanned, {SourceRef, Row, Column}=Pos, in_source) ->
@@ -148,10 +148,4 @@ scan(<<_C/utf8, Rest/binary>>, Scanned, {SourceRef, Row, Column}, in_comment) ->
 scan(_X, Scanned, SRC, In) ->
     io:format("~n~n~p~n~n", [{Scanned, SRC, In}]),
     a = _X.
-
-
-
-
-
-
 
