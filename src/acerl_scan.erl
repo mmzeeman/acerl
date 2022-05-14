@@ -8,8 +8,8 @@
 
 -define(IS_WHITESPACE(C), (C =:= $\t orelse C =:= $\r orelse C =:= $\s)).
 
--define(IS_ASCII(C), ((C >= $a andalso C =< $z) orelse (C >= $A andalso C =< $Z) orelse C =:= $_)).
--define(IS_DECIMAL_DIGIT(C), (C >= $0 andalso C =< $9)).
+-define(IS_ALPHA(C), ((C >= $a andalso C =< $z) orelse (C >= $A andalso C =< $Z))).
+-define(IS_DIGIT(C), ((C >= $0 andalso C =< $9))).
 
 scan(Source) ->
     scan(undefined, Source).
@@ -119,15 +119,13 @@ scan(<<$`, Rest/binary>>, Scanned, {SourceRef, Row, Column}=Pos, in_source) ->
 scan(<<C/utf8, Rest/binary>>, [{string, Pos, Acc} | Scanned], {SourceRef, Row, Column}, in_raw_string) ->
     scan(Rest, [{string, Pos, <<Acc/binary, C/utf8>>} | Scanned], {SourceRef, Row, Column+1}, in_raw_string);
 
-%% Names
-scan(<<C/utf8, Rest/binary>>, [{name, Pos, Acc} | Scanned], {SourceRef, Row, Column}, in_name) when ?IS_ASCII(C) ->
-    scan(Rest, [{name, Pos, <<Acc/binary, C/utf8>>} | Scanned], {SourceRef, Row, Column+1}, in_name);
-scan(<<C/utf8, Rest/binary>>, [{name, Pos, Acc} | Scanned], {SourceRef, Row, Column}, in_name) when ?IS_DECIMAL_DIGIT(C) ->
-    scan(Rest, [{name, Pos, <<Acc/binary, C/utf8>>} | Scanned], {SourceRef, Row, Column+1}, in_name);
-scan(Rest, Scanned, Pos, in_name) ->
+%% Vars 
+scan(<<C/utf8, Rest/binary>>, [{var, Pos, Acc} | Scanned], {SourceRef, Row, Column}, in_var) when ?IS_ALPHA(C) orelse ?IS_DIGIT(C) orelse C =:= $_ ->
+    scan(Rest, [{var, Pos, <<Acc/binary, C/utf8>>} | Scanned], {SourceRef, Row, Column+1}, in_var);
+scan(Rest, Scanned, Pos, in_var) ->
     scan(Rest, Scanned, Pos, in_source);
-scan(<<C/utf8, Rest/binary>>, Scanned, {SourceRef, Row, Column}=Pos, in_source) when ?IS_ASCII(C) ->
-    scan(Rest, [{name, Pos, <<C/utf8>>} | Scanned], {SourceRef, Row, Column+1}, in_name);
+scan(<<C/utf8, Rest/binary>>, Scanned, {SourceRef, Row, Column}=Pos, in_source) when ?IS_ALPHA(C) orelse C =:= $_ ->
+    scan(Rest, [{var, Pos, <<C/utf8>>} | Scanned], {SourceRef, Row, Column+1}, in_var);
 
 %% Whitespace
 scan(<<"\r\n", Rest/binary>>, Scanned, {SourceRef, Row, _Column}, in_source) ->
