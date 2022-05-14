@@ -11,26 +11,25 @@ package         = "package" ref
 import          = "import" package [ "as" var ]
 policy          = { rule }
 rule            = [ "default" ] rule-head { rule-body }
-rule-head       = var [ "(" rule-args ")" ] [ "[" term "]" ] [ ( ":=" | "=" ) term ]
+rule-head       = var [ "(" rule-args ")" ] [ "[" term "]" ] [ = term ]
 rule-args       = term { "," term }
-rule-body       = [ "else" [ ( ":=" | "=" ) term ] ] "{" query "}"
-query           = literal { ( ";" | ( [CR] LF ) ) literal }
+rule-body       = [ else [ = term ] ] "{" query "}"
+query           = literal { ";" | [\r\n] literal }
 literal         = ( some-decl | expr | "not" expr ) { with-modifier }
 with-modifier   = "with" term "as" term
-some-decl       = "some" term { "," term } { "in" expr }
-expr            = term | expr-call | expr-infix | expr-every
-expr-call       = var [ "." var ] "(" [ expr { "," expr } ] ")"
-expr-infix      = [ term "=" ] expr infix-operator expr
-expr-every      = "every" var { "," var } "in" ( term | expr-call | expr-infix ) "{" query "}"
+some-decl       = "some" var { "," var }
+expr            = term | expr-built-in | expr-infix
+expr-built-in   = var [ "." var ] "(" [ term { , term } ] ")"
+expr-infix      = [ term "=" ] term infix-operator term
 term            = ref | var | scalar | array | object | set | array-compr | object-compr | set-compr
 array-compr     = "[" term "|" rule-body "]"
 set-compr       = "{" term "|" rule-body "}"
 object-compr    = "{" object-item "|" rule-body "}"
 infix-operator  = bool-operator | arith-operator | bin-operator
-bool-operator   = "==" | "!=" | "<" | ">" | ">=" | "<="
+bool-operator   = "=" | "!=" | "<" | ">" | ">=" | "<="
 arith-operator  = "+" | "-" | "*" | "/"
 bin-operator    = "&" | "|"
-ref             = ( var | array | object | set | array-compr | object-compr | set-compr | expr-call ) { ref-arg }
+ref             = var { ref-arg }
 ref-arg         = ref-arg-dot | ref-arg-brack
 ref-arg-brack   = "[" ( scalar | var | array | object | set | "_" ) "]"
 ref-arg-dot     = "." var

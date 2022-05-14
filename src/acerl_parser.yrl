@@ -4,15 +4,12 @@
 Nonterminals
     Module
     Package
-    OptImports
     Imports
     Import
     Policy
     Term
     Terms
     OptEqTerm
-    OptRules
-    OptImport
     Rules
     Rule
     OptRuleArgs
@@ -36,10 +33,16 @@ Nonterminals
     ArrayCompr
     ObjectCompr
     SetCompr
-    ExprCall
+    ExprBuiltIn
+    ExprInfix
+    Expr
     Literal
-   
- 
+    SomeDecl
+    OptWithModifiers
+    WithModifiers
+    WithModifier
+    Vars
+    InfixOperator
 .
 
 
@@ -62,19 +65,23 @@ Terminals
     null
     colon
     set
-
+    pipe
+    not
+    with
+    some
+    relation_operator    
 .
 
 
-Rootsymbol 
-    Module.
+Rootsymbol Module.
+Endsymbol '$eof'.
 
-Module -> Package OptImports Policy.
+Module -> Package.
+Module -> Package Imports.
+Module -> Package Policy.
+Module -> Package Imports Policy.
 
 Package -> package Ref.
-
-OptImports -> '$empty'.
-OptImport -> Imports.
 
 Imports -> Import.
 Imports -> Imports Import.
@@ -82,10 +89,7 @@ Imports -> Imports Import.
 Import -> import Package.
 Import -> import Package as var.
 
-Policy -> OptRules.
-
-OptRules -> '$empty'.
-OptRules -> Rules.
+Policy -> Rules.
 
 Rules -> Rule.
 Rules -> Rules Rule.
@@ -93,7 +97,6 @@ Rules -> Rules Rule.
 Rule -> default RuleHead RuleBody.
 Rule -> RuleHead.
 
-RuleHead -> var lparen RuleArgs rparen rsbrace Term lsbrace.
 RuleHead -> var OptRuleArgs OptRuleTerm OptEqTerm.
 
 OptRuleArgs -> '$empty'.
@@ -102,10 +105,13 @@ OptRuleArgs -> lparen RuleArgs rparen.
 RuleArgs -> Terms.
 
 Terms -> Term.
-Terms -> Terms Term.
+Terms -> Terms comma Term.
 
 OptRuleTerm -> '$empty'.
 OptRuleTerm -> lsbrace Term rsbrace.
+
+OptEqTerm -> '$empty'. 
+OptEqTerm -> eq_oper Term.  
 
 RuleBody -> RuleElse lcbrace Query rcbrace. 
 RuleBody -> lcbrace Query rcbrace. 
@@ -117,10 +123,8 @@ Query -> Literal.
 Query -> Query Literal.
 Query -> Query semi_colon Literal.
 
-OptEqTerm -> '$empty'. 
-OptEqTerm -> eq_oper Term.  
 
-% Term -> var.
+% Term -> var. 
 Term -> Ref.
 Term -> Scalar.
 Term -> Array.
@@ -130,16 +134,9 @@ Term -> ArrayCompr.
 Term -> ObjectCompr.
 Term -> SetCompr.
 
+Ref -> var.
 Ref -> var RefArgs.
-Ref -> Array RefArgs.
-Ref -> Object RefArgs.
-Ref -> Set RefArgs.
-Ref -> ArrayCompr RefArgs.
-Ref -> ObjectCompr RefArgs.
-Ref -> SetCompr RefArgs.
-Ref -> ExprCall RefArgs.
 
-RefArgs -> '$empty'.
 RefArgs -> RefArg.
 RefArgs -> RefArgs RefArg.
 
@@ -148,14 +145,30 @@ RefArg -> RefArgBrack.
 
 RefArgDot -> dot var.
 
-RefArgBrack -> lsbrace var rsbrace.
+RefArgBrack -> lsbrace var rsbrace.  %% Includes "_"
 RefArgBrack -> lsbrace Scalar rsbrace.
 RefArgBrack -> lsbrace Array rsbrace.
 RefArgBrack -> lsbrace Object rsbrace.
 RefArgBrack -> lsbrace Set rsbrace.
 
 %% literal         = ( some-decl | expr | "not" expr ) { with-modifier }
-Literal -> string.
+Literal -> SomeDecl OptWithModifiers.
+Literal -> Expr OptWithModifiers.
+Literal -> not Expr OptWithModifiers.
+
+OptWithModifiers -> '$empty'.
+OptWithModifiers -> WithModifiers.
+
+WithModifiers -> WithModifier.
+WithModifiers -> WithModifiers WithModifier.
+
+WithModifier -> with Term as Term.
+
+%% some-decl       = "some" var { "," var }
+SomeDecl -> some Vars.
+
+Vars -> var.
+Vars -> Vars comma var.
 
 %% scalar          = string | NUMBER | TRUE | FALSE | NULL
 Scalar -> string.
@@ -185,16 +198,32 @@ Set -> set rparen.
 Set -> lcbrace Terms rcbrace.
 
 %% object-compr    = "{" object-item "|" rule-body "}"
-ObjectCompr -> lcbrace ObjectItem rcbrace.
-ObjectCompr -> lcbrace RuleBody rcbrace.
+ObjectCompr -> lcbrace ObjectItem pipe RuleBody rcbrace.
 
 %% array-compr     = "[" term "|" rule-body "]"
-ArrayCompr -> lsbrace Term rsbrace.
-ArrayCompr -> lsbrace RuleBody rsbrace.
+ArrayCompr -> lsbrace Term pipe RuleBody rsbrace.
 
 %% set-compr       = "{" term "|" rule-body "}"
-SetCompr -> lcbrace Term rcbrace.
-SetCompr -> lcbrace RuleBody rcbrace.
+SetCompr -> lcbrace Term pipe rcbrace.
 
-%% expr-call       = var [ "." var ] "(" [ expr { "," expr } ] ")"
-ExprCall -> var. %% [TODO]
+
+% expr            = term | expr-call | expr-infix | expr-every
+Expr -> Term.
+Expr -> ExprBuiltIn.
+Expr -> ExprInfix.
+
+% expr-built-in   = var [ "." var ] "(" [ term { , term } ] ")"
+ExprBuiltIn -> Vars lparen rparen.
+ExprBuiltIn -> Vars lparen Terms rparen.
+
+% expr-infix      = [ term "=" ] term infix-operator term
+ExprInfix -> Term InfixOperator Term.
+
+%% infix-operator  = bool-operator | arith-operator | bin-operator
+%% bool-operator   = "=" | "!=" | "<" | ">" | ">=" | "<="
+%% arith-operator  = "+" | "-" | "*" | "/"
+%% bin-operator    = "&" | "|"
+InfixOperator -> relation_operator. % todo.
+
+
+
