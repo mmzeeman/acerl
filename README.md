@@ -8,7 +8,7 @@ https://github.com/antlr/grammars-v4/tree/rego
 ```
 module          = package { import } policy
 package         = "package" ref
-import          = "import" package [ "as" var ]
+import          = "import" ref [ "as" var ]
 policy          = { rule }
 rule            = [ "default" ] rule-head { rule-body }
 rule-head       = var [ "(" rule-args ")" ] [ "[" term "]" ] [ = term ]
