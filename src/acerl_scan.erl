@@ -111,8 +111,6 @@ scan(<<$;, Rest/binary>>, Scanned, Pos, in_source) ->
     scan(Rest, [{semicolon, Pos} | Scanned], inc_column(Pos), in_source);
 scan(<<$:, Rest/binary>>, Scanned, Pos, in_source) ->
     scan(Rest, [{colon, Pos} | Scanned], inc_column(Pos), in_source);
-scan(<<$&, Rest/binary>>, Scanned, Pos, in_source) ->
-    scan(Rest, [{ampersand, Pos} | Scanned], inc_column(Pos), in_source);
 scan(<<$., Rest/binary>>, Scanned, Pos, in_source) ->
     scan(Rest, [{dot, Pos} | Scanned], inc_column(Pos), in_source);
 

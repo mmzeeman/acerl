@@ -1,3 +1,35 @@
+%% Integrating OPA
+
+Rest API
+
+# Named policy decisions (data api)
+
+## /v1/data/<path> 
+
+Dus als je een policy hebt
+
+```rego
+package example.authz
+
+default allow := false
+
+allow {
+...
+```
+
+Dan gebruik je de api als volgt
+
+```
+POST /v1/data/example/authz/allow
+...
+```
+
+
+
+
+
+
+
 %% Inspiration
 
 https://www.openpolicyagent.org/docs/latest/policy-reference/#grammar

@@ -1,5 +1,7 @@
 %%
+%% Yecc Rego Grammar
 %%
+
 
 Nonterminals
     Module
@@ -52,7 +54,6 @@ Terminals
     package
     import
     var
-    eq_operation
     else
     lcbrace rcbrace
     lsbrace rsbrace
@@ -79,21 +80,21 @@ Terminals
 Rootsymbol Module.
 Endsymbol '$eof'.
 
-Module -> Package                : #{ type => module, package => '$1' }.
-Module -> Package Imports        : #{ type => module, package => '$1', imports => '$2' }.
-Module -> Package Policy         : #{ type => module, package => '$1', policy => '$2'}.
-Module -> Package Imports Policy : #{ type => module, package => '$1', imports => '$2', policy => '$3' }.
+Module -> Package                : #{ package => '$1' }.
+Module -> Package Imports        : #{ package => '$1', imports => '$2' }.
+Module -> Package Policy         : #{ package => '$1', rules => '$2'}.
+Module -> Package Imports Policy : #{ package => '$1', imports => '$2', rules => '$3' }.
 
-Package -> package Ref : '$2'.
+Package -> package Ref : #{ path => '$2', type => ref }.
 
 Imports -> Import         : [ '$1' ].
 Imports -> Imports Import : '$1' ++ [ '$2' ].
 
 % import          = "import" ref [ "as" var ]
-Import -> import Ref        : #{ type => import, package => '$2' }.
-Import -> import Ref as var : #{ type => import, package => '$2', as => '$4' }.
+Import -> import Ref        : #{ type => ref, path => '$2' }.
+Import -> import Ref as var : #{ type => ref, path => '$2', alias => token_to_value('$4') }.
 
-Policy -> Rules : #{ type => policy, rules => '$1' }.
+Policy -> Rules : '$1'.
 
 Rules -> Rule       : [ '$1' ].
 Rules -> Rules Rule : '$1' ++ [ '$2' ].
@@ -103,7 +104,7 @@ Rule -> default RuleHead RuleBodies : #{ type => default_rule, head => '$2', bod
 Rule -> RuleHead RuleBodies         : #{ type => rule, head => '$1', body => '$2' }.
 
 %% rule-head       = var [ "(" rule-args ")" ] [ "[" term "]" ] [ = term ]
-RuleHead -> var OptRuleArgs OptRuleTerm OptEqTerm : #{type => head, name => '$1', rule_args => '$2', rule_term => '$3', eq_term => '$4' }.
+RuleHead -> var OptRuleArgs OptRuleTerm OptEqTerm : #{type => head, name => token_to_value('$1'), rule_args => '$2', rule_term => '$3', eq_term => '$4' }.
 
 OptRuleArgs -> '$empty'.
 OptRuleArgs -> lparen RuleArgs rparen : '$2'.
@@ -126,7 +127,7 @@ OptRuleTerm -> '$empty' :  undefined.
 OptRuleTerm -> lsbrace Term rsbrace : '$2'.
 
 OptEqTerm -> '$empty'     : undefined. 
-OptEqTerm -> eq_operation Term : #{ type => eq_operator, value => '$2' }.  
+OptEqTerm -> eq_operator Term : #{ type => eq_operator, operator => token_to_value('$1'), value => '$2' }.  
 
 RuleElse -> else OptEqTerm : #{ type => else, value => '$2' }.
 
@@ -146,8 +147,8 @@ Term -> ArrayCompr  : '$1'.
 Term -> ObjectCompr : '$1'.
 Term -> SetCompr    : '$1'.
 
-Ref -> var         : #{ type => ref, value => token_to_value('$1') }.
-Ref -> var RefArgs : #{ type => ref, value => token_to_value('$1'), args => '$2' }.
+Ref -> var         : [ token_to_value('$1') ].
+Ref -> var RefArgs : [ token_to_value('$1') | '$2' ].
 
 RefArgs -> RefArg         : [ '$1' ] .
 RefArgs -> RefArgs RefArg : '$1' ++ [ '$2' ].
@@ -155,9 +156,9 @@ RefArgs -> RefArgs RefArg : '$1' ++ [ '$2' ].
 RefArg -> RefArgDot   : '$1'.
 RefArg -> RefArgBrack : '$1'.
 
-RefArgDot -> dot var : '$2' .
+RefArgDot -> dot var : token_to_value('$2') .
 
-RefArgBrack -> lsbrace var rsbrace    : '$2'.  %% Includes "_"
+RefArgBrack -> lsbrace Ref rsbrace    : '$2'.  %% Includes "_"
 RefArgBrack -> lsbrace Scalar rsbrace : '$2'.
 RefArgBrack -> lsbrace Array rsbrace  : '$2'.
 RefArgBrack -> lsbrace Object rsbrace : '$2'.
@@ -182,10 +183,10 @@ WithModifiers -> WithModifiers WithModifier : '$1' ++ [ '$1' ].
 WithModifier -> with Term as Term : #{ type => with, term => '$3', as => '$4' }.
 
 %% some-decl       = "some" var { "," var }
-SomeDecl -> some Vars : #{ type => some, value => '$2' }.
+SomeDecl -> some Vars : #{ type => some, value => token_to_value('$2') }.
 
-Vars -> var            : [ '$1' ].
-Vars -> Vars comma var : '$1' ++ [ '$3' ].
+Vars -> var            : [ token_to_value('$1') ].
+Vars -> Vars comma var : '$1' ++ [ token_to_value('$3') ].
 
 %% scalar          = string | NUMBER | TRUE | FALSE | NULL
 Scalar -> string  : token_to_value('$1').
