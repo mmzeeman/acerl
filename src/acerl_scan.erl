@@ -114,6 +114,51 @@ scan(<<$:, Rest/binary>>, Scanned, Pos, in_source) ->
 scan(<<$., Rest/binary>>, Scanned, Pos, in_source) ->
     scan(Rest, [{dot, Pos} | Scanned], inc_column(Pos), in_source);
 
+%% Numbers...
+
+scan(<<Ws, Rest/binary>>, [{number, StartPos, Number} | Scanned], Pos, InNumberFloatOrExponent) when
+      ?IS_WHITESPACE(Ws)
+      andalso (InNumberFloatOrExponent =:= in_number orelse InNumberFloatOrExponent =:= in_float orelse InNumberFloatOrExponent =:= in_exponent) ->
+    scan(Rest, [{number, StartPos, jason:decode(Number)} | Scanned], Pos, in_source);
+
+%% Number start
+scan(<<$-, N, Rest/binary>>, Scanned, Pos, in_source) when ?IS_DIGIT(N) ->
+    scan(Rest, [{number, Pos, <<"-", N>>} | Scanned], inc_column(Pos, 2), in_number);
+scan(<<N, Rest/binary>>, Scanned, Pos, in_source) when ?IS_DIGIT(N) ->
+    scan(Rest, [{number, Pos, <<N>>} | Scanned], inc_column(Pos, 2), in_number);
+
+%% Exponent detection
+scan(<<E, $+, N, Rest/binary>>, [{number, StartPos, Number} | Scanned], Pos, InNumberOrFloat)  when
+      (InNumberOrFloat =:= in_number orelse InNumberOrFloat =:= in_float)
+      andalso (E =:= $E orelse E =:= $e) 
+      andalso ?IS_DIGIT(N) ->
+    scan(Rest, [{number, StartPos, <<Number/binary, E, $+, N>>} | Scanned], inc_column(Pos, 3), in_exponent);
+scan(<<E, $-, N, Rest/binary>>, [{number, StartPos, Number} | Scanned], Pos, InNumberOrFloat) when 
+      (InNumberOrFloat =:= in_number orelse InNumberOrFloat =:= in_float)
+      andalso (E =:= $E orelse E =:= $e) 
+      andalso ?IS_DIGIT(N) ->
+    scan(Rest, [{number, StartPos, <<Number/binary, E, $-, N>>} | Scanned], inc_column(Pos, 3), in_exponent);
+scan(<<E, N, Rest/binary>>, [{number, StartPos, Number} | Scanned], Pos, InNumberOrFloat) when
+      (InNumberOrFloat =:= in_number orelse InNumberOrFloat =:= in_float)
+      andalso (E =:= $E orelse E =:= $e) 
+      andalso ?IS_DIGIT(N) ->
+    scan(Rest, [{number, StartPos, <<Number/binary, E, N>>} | Scanned], inc_column(Pos, 2), in_exponent);
+
+%% Decimal dot detection
+scan(<<$., N, Rest/binary>>, [{number, StartPos, Number} | Scanned], Pos, in_number) ->
+    scan(Rest, [{number, StartPos, <<Number/binary, $., N>>} | Scanned], inc_column(Pos, 2), in_float);
+
+%% Consume a number
+scan(<<N, Rest/binary>>, [{number, StartPos, Number} | Scanned], Pos, InNumberFloatOrExponent) when
+      ?IS_DIGIT(N)
+      andalso (InNumberFloatOrExponent =:= in_number orelse InNumberFloatOrExponent =:= in_float orelse InNumberFloatOrExponent =:= in_exponent) ->
+    scan(Rest, [{number, StartPos, <<Number/binary,  N>>} | Scanned], inc_column(Pos), InNumberFloatOrExponent);
+
+%% Recognized a number, use jason to decode the number
+scan(Rest, [{number, StartPos, Number} | Scanned], Pos, InNumberFloatOrExponent) when
+      InNumberFloatOrExponent =:= in_number orelse InNumberFloatOrExponent =:= in_float orelse InNumberFloatOrExponent =:= in_exponent ->
+    scan(Rest, [{number, StartPos, jason:decode(Number)} | Scanned], Pos, in_source);
+
 %% Strings between quotes, a quote must be escaped.
 scan(<<$", Rest/binary>>, Scanned, Pos, in_string) ->
     scan(Rest, Scanned, inc_column(Pos), in_source);

@@ -61,6 +61,7 @@ Terminals
     dot
     semi_colon
     string
+    number
     comma
     boolean
     null
@@ -190,7 +191,7 @@ Vars -> Vars comma var : '$1' ++ [ token_to_value('$3') ].
 
 %% scalar          = string | NUMBER | TRUE | FALSE | NULL
 Scalar -> string  : token_to_value('$1').
-% Scalar -> number. [todo]
+Scalar -> number : token_to_value('$1').
 Scalar -> boolean : token_to_value('$1').
 Scalar -> null    : token_to_value('$1').
 
