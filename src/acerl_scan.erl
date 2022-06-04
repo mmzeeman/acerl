@@ -10,6 +10,7 @@
 
 -define(IS_ALPHA(C), ((C >= $a andalso C =< $z) orelse (C >= $A andalso C =< $Z))).
 -define(IS_DIGIT(C), ((C >= $0 andalso C =< $9))).
+-define(IS_VAR_CHAR(C), (?IS_DIGIT(C) orelse ?IS_ALPHA(C) orelse C =:= $_)).
 
 scan(Source) ->
     scan(undefined, Source).
@@ -25,31 +26,59 @@ scan(<<>>, Scanned, Pos, ScanState) when ScanState =:= in_source orelse ScanStat
     %% [TODO] Some post precessing
     {ok, lists:reverse([{'$eof', Pos} | Scanned])};
 
-
-
 %% Booleans
-scan(<<"true", Rest/binary>>, Scanned, Pos, in_source) ->
-    scan(Rest, [{boolean, Pos, true} | Scanned], inc_column(Pos, 4), in_source);
-scan(<<"false", Rest/binary>>, Scanned, Pos, in_source) ->
-    scan(Rest, [{boolean, Pos, false} | Scanned], inc_column(Pos, 5), in_source);
+scan(<<"true">>, Scanned, Pos, in_source) ->
+    scan(<<>>, [{boolean, Pos, true} | Scanned], inc_column(Pos, 4), in_source);
+scan(<<"true", C, Rest/binary>>, Scanned, Pos, in_source) when not ?IS_VAR_CHAR(C) ->
+    scan(<<C, Rest/binary>>, [{boolean, Pos, true} | Scanned], inc_column(Pos, 4), in_source);
+
+scan(<<"false">>, Scanned, Pos, in_source) ->
+    scan(<<>>, [{boolean, Pos, false} | Scanned], inc_column(Pos, 5), in_source);
+scan(<<"false", C, Rest/binary>>, Scanned, Pos, in_source) when not ?IS_VAR_CHAR(C) ->
+    scan(<<C, Rest/binary>>, [{boolean, Pos, false} | Scanned], inc_column(Pos, 5), in_source);
+
 %% Null
-scan(<<"null", Rest/binary>>, Scanned, Pos, in_source) ->
-    scan(Rest, [{null, Pos} | Scanned], inc_column(Pos, 4), in_source);
+scan(<<"null">>, Scanned, Pos, in_source) ->
+    scan(<<>>, [{null, Pos} | Scanned], inc_column(Pos, 4), in_source);
+scan(<<"null", C, Rest/binary>>, Scanned, Pos, in_source) when not ?IS_VAR_CHAR(C) ->
+    scan(<<C, Rest/binary>>, [{null, Pos} | Scanned], inc_column(Pos, 4), in_source);
+
 %% Keywords
-scan(<<"as", Rest/binary>>, Scanned, Pos, in_source) ->
-    scan(Rest, [{as, Pos} | Scanned], inc_column(Pos, 2), in_source);
-scan(<<"default", Rest/binary>>, Scanned, Pos, in_source) ->
-    scan(Rest, [{default, Pos} | Scanned], inc_column(Pos, 7), in_source);
-scan(<<"else", Rest/binary>>, Scanned, Pos, in_source) ->
-    scan(Rest, [{else, Pos} | Scanned], inc_column(Pos, 4), in_source);
-scan(<<"import", Rest/binary>>, Scanned, Pos, in_source) ->
-    scan(Rest, [{import, Pos} | Scanned], inc_column(Pos, 6), in_source);
-scan(<<"package", Rest/binary>>, Scanned, Pos, in_source) ->
-    scan(Rest, [{package, Pos} | Scanned], inc_column(Pos, 7), in_source);
-scan(<<"not", Rest/binary>>, Scanned, Pos, in_source) ->
-    scan(Rest, [{'not', Pos} | Scanned], inc_column(Pos, 3), in_source);
-scan(<<"with", Rest/binary>>, Scanned, Pos, in_source) ->
-    scan(Rest, [{with, Pos} | Scanned], inc_column(Pos, 4), in_source);
+scan(<<"as">>, Scanned, Pos, in_source) ->
+    scan(<<>>, [{as, Pos} | Scanned], inc_column(Pos, 2), in_source);
+scan(<<"as", C, Rest/binary>>, Scanned, Pos, in_source) when not ?IS_VAR_CHAR(C) ->
+    scan(<<C, Rest/binary>>, [{as, Pos} | Scanned], inc_column(Pos, 2), in_source);
+
+scan(<<"default">>, Scanned, Pos, in_source) ->
+    scan(<<>>, [{default, Pos} | Scanned], inc_column(Pos, 7), in_source);
+scan(<<"default", C, Rest/binary>>, Scanned, Pos, in_source) when not ?IS_VAR_CHAR(C) ->
+    scan(<<C, Rest/binary>>, [{default, Pos} | Scanned], inc_column(Pos, 7), in_source);
+
+scan(<<"else">>, Scanned, Pos, in_source) ->
+    scan(<<>>, [{else, Pos} | Scanned], inc_column(Pos, 4), in_source);
+scan(<<"else", C, Rest/binary>>, Scanned, Pos, in_source) when not ?IS_VAR_CHAR(C) ->
+    scan(<<C, Rest/binary>>, [{else, Pos} | Scanned], inc_column(Pos, 4), in_source);
+
+scan(<<"import">>, Scanned, Pos, in_source)  ->
+    scan(<<>>, [{import, Pos} | Scanned], inc_column(Pos, 6), in_source);
+scan(<<"import", C, Rest/binary>>, Scanned, Pos, in_source) when not ?IS_VAR_CHAR(C) ->
+    scan(<<C, Rest/binary>>, [{import, Pos} | Scanned], inc_column(Pos, 6), in_source);
+
+scan(<<"package">>, Scanned, Pos, in_source) ->
+    scan(<<>>, [{package, Pos} | Scanned], inc_column(Pos, 7), in_source);
+scan(<<"package", C, Rest/binary>>, Scanned, Pos, in_source) when not ?IS_VAR_CHAR(C) ->
+    scan(<<C, Rest/binary>>, [{package, Pos} | Scanned], inc_column(Pos, 7), in_source);
+
+scan(<<"not">>, Scanned, Pos, in_source) ->
+    scan(<<>>, [{'not', Pos} | Scanned], inc_column(Pos, 3), in_source);
+scan(<<"not", C, Rest/binary>>, Scanned, Pos, in_source) when not ?IS_VAR_CHAR(C) ->
+    scan(<<C, Rest/binary>>, [{'not', Pos} | Scanned], inc_column(Pos, 3), in_source);
+
+scan(<<"with">>, Scanned, Pos, in_source) ->
+    scan(<<>>, [{with, Pos} | Scanned], inc_column(Pos, 4), in_source);
+scan(<<"with", C, Rest/binary>>, Scanned, Pos, in_source) when not ?IS_VAR_CHAR(C) ->
+    scan(<<C, Rest/binary>>, [{with, Pos} | Scanned], inc_column(Pos, 4), in_source);
+
 %% Empty set start.
 scan(<<"set(", Rest/binary>>, Scanned, Pos, in_source) ->
     scan(Rest, [{set, Pos} | Scanned], inc_column(Pos, 4), in_source);
@@ -115,7 +144,6 @@ scan(<<$., Rest/binary>>, Scanned, Pos, in_source) ->
     scan(Rest, [{dot, Pos} | Scanned], inc_column(Pos), in_source);
 
 %% Numbers...
-
 scan(<<Ws, Rest/binary>>, [{number, StartPos, Number} | Scanned], Pos, InNumberFloatOrExponent) when
       ?IS_WHITESPACE(Ws)
       andalso (InNumberFloatOrExponent =:= in_number orelse InNumberFloatOrExponent =:= in_float orelse InNumberFloatOrExponent =:= in_exponent) ->

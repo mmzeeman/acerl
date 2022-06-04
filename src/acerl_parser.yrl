@@ -4,78 +4,18 @@
 
 
 Nonterminals
-    Module
-    Package
-    Imports
-    Import
-    Policy
-    Term
-    Terms
-    OptEqTerm
-    Rules
-    Rule
-    OptRuleArgs
-    OptRuleTerm
-    RuleArgs
-    RuleHead
-    RuleBodies
-    RuleBody
-    RuleElse
-    Ref
-    RefArgs
-    RefArg
-    RefArgDot
-    RefArgBrack
-    Query
-    Scalar
-    Array
-    Object
-    ObjectItems
-    ObjectItem
-    Set
-    ArrayCompr
-    ObjectCompr
-    SetCompr
-    ExprBuiltIn
-    ExprInfix
-    Expr
-    Literal
-    LiteralExpr
-    SomeDecl
-    WithModifiers
-    WithModifier
-    Vars
-    InfixOperator.
-
+    Module Package Imports Import Policy Term Terms OptEqTerm Rules Rule
+    OptRuleArgs OptRuleTerm RuleArgs RuleHead RuleBodies RuleBody RuleElse
+    Ref RefArgs RefArg RefArgDot RefArgBrack Query Scalar Array Object
+    ObjectItems ObjectItem Set ArrayCompr ObjectCompr SetCompr ExprBuiltIn
+    ExprInfix Expr Literal LiteralExpr SomeDecl WithModifiers WithModifier
+    Vars InfixOperator.
 
 Terminals
-    as
-    default
-    package
-    import
-    var
-    else
-    lcbrace rcbrace
-    lsbrace rsbrace
-    lparen rparen
-    dot
-    semi_colon
-    string
-    number
-    comma
-    boolean
-    null
-    colon
-    set
-    pipe
-    not
-    with
-    some
-    bin_operator
-    arith_operator
-    bool_operator
-    eq_operator
-    .
+    as default package import var else lcbrace rcbrace lsbrace rsbrace
+    lparen rparen dot semi_colon string number comma boolean null colon
+    set pipe not with some bin_operator arith_operator bool_operator
+    eq_operator.
 
 
 Rootsymbol Module.
@@ -101,8 +41,8 @@ Rules -> Rule       : [ '$1' ].
 Rules -> Rules Rule : '$1' ++ [ '$2' ].
 
 %% rule            = [ "default" ] rule-head { rule-body }
-Rule -> default RuleHead RuleBodies : #{ type => default_rule, head => '$2', body => '$3' }.
-Rule -> RuleHead RuleBodies         : #{ type => rule, head => '$1', body => '$2' }.
+Rule -> default RuleHead RuleBodies : #{ default => true, head => '$2', body => '$3' }.
+Rule -> RuleHead RuleBodies         : #{ head => '$1', body => '$2' }.
 
 %% rule-head       = var [ "(" rule-args ")" ] [ "[" term "]" ] [ = term ]
 RuleHead -> var OptRuleArgs OptRuleTerm OptEqTerm : #{type => head, name => token_to_value('$1'), rule_args => '$2', rule_term => '$3', eq_term => '$4' }.
@@ -213,8 +153,8 @@ ObjectItem -> var colon Term.
 %% non-empty-set   = "{" term { "," term } "}"
 %% empty-set       = "set(" ")"
 
-Set -> set rparen            : todo_set_empty.
-Set -> lcbrace Terms rcbrace : todo_set.
+Set -> set rparen            : #{ type => set, value => [] }.
+Set -> lcbrace Terms rcbrace : #{ type => set, value => '$2' }.
 
 %% object-compr    = "{" object-item "|" rule-body "}"
 ObjectCompr -> lcbrace ObjectItem pipe RuleBody rcbrace : todo_object_compr.
@@ -246,6 +186,7 @@ InfixOperator -> arith_operator: token_to_value('$1').
 InfixOperator -> bin_operator: token_to_value('$1').
 
 Erlang code.
+-compile(inline).
 
 token_to_value({Category, Pos}) ->
     #{ type => Category, position => Pos };
