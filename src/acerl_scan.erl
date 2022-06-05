@@ -10,7 +10,6 @@
 
 -define(IS_ALPHA(C), ((C >= $a andalso C =< $z) orelse (C >= $A andalso C =< $Z))).
 -define(IS_DIGIT(C), ((C >= $0 andalso C =< $9))).
--define(IS_VAR_CHAR(C), (?IS_DIGIT(C) orelse ?IS_ALPHA(C) orelse C =:= $_)).
 
 scan(Source) ->
     scan(undefined, Source).
@@ -22,62 +21,21 @@ scan(SourceRef, Source) when is_binary(Source) ->
 scan(SourceRef, Source) when is_list(Source) ->
     scan(SourceRef, unicode:characters_to_binary(Source)).
 
+scan(<<>>, [VarToken | Rest], Pos, in_var) ->
+    Token = maybe_reserved(VarToken),
+    {ok, lists:reverse([{'$eof', Pos}, Token | Rest])};
 scan(<<>>, Scanned, Pos, ScanState) when ScanState =:= in_source orelse ScanState =:= in_comment ->
     %% [TODO] Some post precessing
     {ok, lists:reverse([{'$eof', Pos} | Scanned])};
 
-%% Booleans
-scan(<<"true">>, Scanned, Pos, in_source) ->
-    scan(<<>>, [{boolean, Pos, true} | Scanned], inc_column(Pos, 4), in_source);
-scan(<<"true", C, Rest/binary>>, Scanned, Pos, in_source) when not ?IS_VAR_CHAR(C) ->
-    scan(<<C, Rest/binary>>, [{boolean, Pos, true} | Scanned], inc_column(Pos, 4), in_source);
-
-scan(<<"false">>, Scanned, Pos, in_source) ->
-    scan(<<>>, [{boolean, Pos, false} | Scanned], inc_column(Pos, 5), in_source);
-scan(<<"false", C, Rest/binary>>, Scanned, Pos, in_source) when not ?IS_VAR_CHAR(C) ->
-    scan(<<C, Rest/binary>>, [{boolean, Pos, false} | Scanned], inc_column(Pos, 5), in_source);
-
-%% Null
-scan(<<"null">>, Scanned, Pos, in_source) ->
-    scan(<<>>, [{null, Pos} | Scanned], inc_column(Pos, 4), in_source);
-scan(<<"null", C, Rest/binary>>, Scanned, Pos, in_source) when not ?IS_VAR_CHAR(C) ->
-    scan(<<C, Rest/binary>>, [{null, Pos} | Scanned], inc_column(Pos, 4), in_source);
-
-%% Keywords
-scan(<<"as">>, Scanned, Pos, in_source) ->
-    scan(<<>>, [{as, Pos} | Scanned], inc_column(Pos, 2), in_source);
-scan(<<"as", C, Rest/binary>>, Scanned, Pos, in_source) when not ?IS_VAR_CHAR(C) ->
-    scan(<<C, Rest/binary>>, [{as, Pos} | Scanned], inc_column(Pos, 2), in_source);
-
-scan(<<"default">>, Scanned, Pos, in_source) ->
-    scan(<<>>, [{default, Pos} | Scanned], inc_column(Pos, 7), in_source);
-scan(<<"default", C, Rest/binary>>, Scanned, Pos, in_source) when not ?IS_VAR_CHAR(C) ->
-    scan(<<C, Rest/binary>>, [{default, Pos} | Scanned], inc_column(Pos, 7), in_source);
-
-scan(<<"else">>, Scanned, Pos, in_source) ->
-    scan(<<>>, [{else, Pos} | Scanned], inc_column(Pos, 4), in_source);
-scan(<<"else", C, Rest/binary>>, Scanned, Pos, in_source) when not ?IS_VAR_CHAR(C) ->
-    scan(<<C, Rest/binary>>, [{else, Pos} | Scanned], inc_column(Pos, 4), in_source);
-
-scan(<<"import">>, Scanned, Pos, in_source)  ->
-    scan(<<>>, [{import, Pos} | Scanned], inc_column(Pos, 6), in_source);
-scan(<<"import", C, Rest/binary>>, Scanned, Pos, in_source) when not ?IS_VAR_CHAR(C) ->
-    scan(<<C, Rest/binary>>, [{import, Pos} | Scanned], inc_column(Pos, 6), in_source);
-
-scan(<<"package">>, Scanned, Pos, in_source) ->
-    scan(<<>>, [{package, Pos} | Scanned], inc_column(Pos, 7), in_source);
-scan(<<"package", C, Rest/binary>>, Scanned, Pos, in_source) when not ?IS_VAR_CHAR(C) ->
-    scan(<<C, Rest/binary>>, [{package, Pos} | Scanned], inc_column(Pos, 7), in_source);
-
-scan(<<"not">>, Scanned, Pos, in_source) ->
-    scan(<<>>, [{'not', Pos} | Scanned], inc_column(Pos, 3), in_source);
-scan(<<"not", C, Rest/binary>>, Scanned, Pos, in_source) when not ?IS_VAR_CHAR(C) ->
-    scan(<<C, Rest/binary>>, [{'not', Pos} | Scanned], inc_column(Pos, 3), in_source);
-
-scan(<<"with">>, Scanned, Pos, in_source) ->
-    scan(<<>>, [{with, Pos} | Scanned], inc_column(Pos, 4), in_source);
-scan(<<"with", C, Rest/binary>>, Scanned, Pos, in_source) when not ?IS_VAR_CHAR(C) ->
-    scan(<<C, Rest/binary>>, [{with, Pos} | Scanned], inc_column(Pos, 4), in_source);
+%% Vars and keywords.
+scan(<<C/utf8, Rest/binary>>, [{var, VarStartPos, Acc} | Scanned], Pos, in_var) when ?IS_ALPHA(C) orelse ?IS_DIGIT(C) orelse C =:= $_ ->
+    scan(Rest, [{var, VarStartPos, <<Acc/binary, C/utf8>>} | Scanned], inc_column(Pos), in_var);
+scan(Rest, [ Token | Scanned], Pos, in_var) ->
+    Token1 = maybe_reserved(Token),
+    scan(Rest, [Token1 | Scanned], Pos, in_source);
+scan(<<C/utf8, Rest/binary>>, Scanned, Pos, in_source) when ?IS_ALPHA(C) orelse C =:= $_ ->
+    scan(Rest, [{var, Pos, <<C/utf8>>} | Scanned], inc_column(Pos), in_var);
 
 %% Empty set start.
 scan(<<"set(", Rest/binary>>, Scanned, Pos, in_source) ->
@@ -205,14 +163,6 @@ scan(<<C/utf8, Rest/binary>>, [{string, StringStartPos, Acc} | Scanned], Pos, in
     %% Todo, count newlines in raw strings
     scan(Rest, [{string, StringStartPos, <<Acc/binary, C/utf8>>} | Scanned], inc_column(Pos), in_raw_string);
 
-%% Vars 
-scan(<<C/utf8, Rest/binary>>, [{var, VarStartPos, Acc} | Scanned], Pos, in_var) when ?IS_ALPHA(C) orelse ?IS_DIGIT(C) orelse C =:= $_ ->
-    scan(Rest, [{var, VarStartPos, <<Acc/binary, C/utf8>>} | Scanned], inc_column(Pos), in_var);
-scan(Rest, Scanned, Pos, in_var) ->
-    scan(Rest, Scanned, Pos, in_source);
-scan(<<C/utf8, Rest/binary>>, Scanned, Pos, in_source) when ?IS_ALPHA(C) orelse C =:= $_ ->
-    scan(Rest, [{var, Pos, <<C/utf8>>} | Scanned], inc_column(Pos), in_var);
-
 %% Whitespace
 scan(<<"\r\n", Rest/binary>>, Scanned, Pos, in_source) ->
     scan(Rest, Scanned, inc_line(Pos), in_source);
@@ -229,11 +179,7 @@ scan(<<"\n", Rest/binary>>, Scanned, Pos, in_comment) ->
 scan(<<"#", Rest/binary>>, Scanned, Pos, in_source) ->
     scan(Rest, Scanned, inc_column(Pos), in_comment);
 scan(<<_C/utf8, Rest/binary>>, Scanned, Pos, in_comment) ->
-    scan(Rest, Scanned, inc_column(Pos), in_comment);
-
-scan(_X, Scanned, SRC, In) ->
-    io:format("~n~n~p~n~n", [{Scanned, SRC, In}]),
-    a = _X.
+    scan(Rest, Scanned, inc_column(Pos), in_comment).
 
 %%
 %% Helpers
@@ -247,5 +193,21 @@ inc_column(Position) ->
 
 inc_column(#{ column := Column}=Position, N) ->
     Position#{ column := Column + N}.
+
+% When the var token is a keyword, change it into the appropriate token.
+maybe_reserved({var, Pos, <<"as">>})      -> {as, Pos};
+maybe_reserved({var, Pos, <<"default">>}) -> {default, Pos};
+maybe_reserved({var, Pos, <<"else">>})    -> {else, Pos};
+maybe_reserved({var, Pos, <<"false">>})   -> {boolean, Pos, false};
+maybe_reserved({var, Pos, <<"import">>})  -> {import, Pos};
+maybe_reserved({var, Pos, <<"package">>}) -> {package, Pos};
+maybe_reserved({var, Pos, <<"not">>})     -> {'not', Pos};
+maybe_reserved({var, Pos, <<"null">>})    -> {null, Pos};
+maybe_reserved({var, Pos, <<"some">>})    -> {some, Pos};
+maybe_reserved({var, Pos, <<"true">>})    -> {boolean, Pos, true};
+maybe_reserved({var, Pos, <<"with">>})    -> {with, Pos};
+maybe_reserved({var, Pos, <<"in">>})      -> {in, Pos};    % future
+maybe_reserved({var, Pos, <<"every">>})   -> {every, Pos}; % future
+maybe_reserved(Token) -> Token.
 
 
