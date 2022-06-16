@@ -1,3 +1,9 @@
+# WIP Access Control for Erlang 
+
+This repository contains a scanner/parser for Rego, the policy language from OPA. 
+
+I work on this in my spare time, so progress is slow.
+
 %% Integrating OPA
 
 Rest API
