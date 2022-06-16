@@ -45,9 +45,20 @@ Rule -> default RuleHead RuleBodies : #{ default => true, head => '$2', body => 
 Rule -> RuleHead RuleBodies         : #{ head => '$1', body => '$2' }.
 
 %% rule-head       = var [ "(" rule-args ")" ] [ "[" term "]" ] [ = term ]
-RuleHead -> var OptRuleArgs OptRuleTerm OptEqTerm : #{type => head, name => token_to_value('$1'), rule_args => '$2', rule_term => '$3', eq_term => '$4' }.
+RuleHead -> var OptRuleArgs OptRuleTerm OptEqTerm :
+    Head = #{name => token_to_value('$1') },
+    Head1 = case '$4' of
+        undefined ->
+            Head;
+        #{ value := Value, operator := #{ value := '=' }} ->
+            Head#{ value => Value };
+        #{ value := Value, operator := #{ value := ':=' }} ->
+            Head#{ value => Value, assing => true }
+    end,
+    Head2 = maybe_add(rule_args, '$2', Head1),
+    maybe_add(rule_term, '$3', Head2).
 
-OptRuleArgs -> '$empty'.
+OptRuleArgs -> '$empty' : undefined.
 OptRuleArgs -> lparen RuleArgs rparen : '$2'.
 
 %% rule-args       = term { "," term }
@@ -68,7 +79,7 @@ OptRuleTerm -> '$empty' :  undefined.
 OptRuleTerm -> lsbrace Term rsbrace : '$2'.
 
 OptEqTerm -> '$empty'     : undefined. 
-OptEqTerm -> eq_operator Term : #{ type => eq_operator, operator => token_to_value('$1'), value => '$2' }.  
+OptEqTerm -> eq_operator Term : #{ operator => token_to_value('$1'), value => '$2' }.  
 
 RuleElse -> else OptEqTerm : #{ type => else, value => '$2' }.
 
@@ -108,12 +119,12 @@ RefArgBrack -> lsbrace Set rsbrace    : '$2'.
 %% literal         = ( some-decl | expr | "not" expr ) { with-modifier }
 %% literal             ::= ( some-decl | literal-expr | "not" literal-expr )  with-modifier*
 
-Literal -> SomeDecl                      : #{ value => '$1' }.
-Literal -> SomeDecl WithModifiers        : #{ value => '$1', with => '$2' }.
-Literal -> LiteralExpr                   : #{ value => '$1' }.
-Literal -> LiteralExpr WithModifiers     : #{ value => '$1', with => '$2' }.
-Literal -> not LiteralExpr               : #{ negate => true, value => '$2' }.
-Literal -> not LiteralExpr WithModifiers : #{ negate => true, value => '$2', with => '$3' }.
+Literal -> SomeDecl                      : #{ type => some_decl, value => '$1' }.
+Literal -> SomeDecl WithModifiers        : #{ type => some_decl, value => '$1', with => '$2' }.
+Literal -> LiteralExpr                   : #{ type => literal_expr, value => '$1' }.
+Literal -> LiteralExpr WithModifiers     : #{ type => literal_expr, value => '$1', with => '$2' }.
+Literal -> not LiteralExpr               : Expr = '$2', Expr#{ negate => true }.
+Literal -> not LiteralExpr WithModifiers : Expr = '$2', Expr#{ negate => true }.
 
 LiteralExpr -> Expr                  : '$1'.
 LiteralExpr -> Expr eq_operator Term : #{ type => eq_expr, left => '$1', right => '$3', op => token_to_value('$2') }.
@@ -141,13 +152,13 @@ Array -> lsbrace Terms rsbrace : #{ type => array, value => '$2' }.
 
 %% object          = "{" object-item { "," object-item } "}"
 %% object-item     = ( scalar | ref | var ) ":" term
-Object -> lcbrace ObjectItems rcbrace : todo_object. 
-ObjectItems -> ObjectItem .
-ObjectItems -> ObjectItems comma ObjectItem.
+Object -> lcbrace ObjectItems rcbrace : '$2'. 
+ObjectItems -> ObjectItem : {Key, Value} = '$1', #{ Key => Value } .
+ObjectItems -> ObjectItems comma ObjectItem : Map = '$1', {Key, Value} = '$3', Map#{ Key => Value }.
 
-ObjectItem -> Scalar colon Term.
-ObjectItem -> Ref colon Term.
-ObjectItem -> var colon Term.
+ObjectItem -> Scalar colon Term : {'$1', '$3' }.
+ObjectItem -> Ref colon Term : {'$1', '$3' }.
+ObjectItem -> var colon Term : {'$1', '$3' }.
 
 %% set             = empty-set | non-empty-set
 %% non-empty-set   = "{" term { "," term } "}"
@@ -193,3 +204,5 @@ token_to_value({Category, Pos}) ->
 token_to_value({Category, Pos, Value}) ->
     #{ type => Category, value => Value, position => Pos }.
 
+maybe_add(_Key, undefined, Map) -> Map;
+maybe_add(Key, Value, Map) -> Map#{ Key => Value}.
