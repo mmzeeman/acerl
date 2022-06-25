@@ -2,7 +2,7 @@
 %%
 %%
 
--module(acerl_scan).
+-module(acerl_rego_scan).
 
 -export([scan/1, scan/2]).
 

@@ -2,7 +2,6 @@
 %% Yecc Rego Grammar
 %%
 
-
 Nonterminals
     Module Package Imports Import Policy Term Terms OptEqTerm Rules Rule
     OptRuleArgs OptRuleTerm RuleArgs RuleHead RuleBodies RuleBody RuleElse
@@ -85,7 +84,7 @@ RuleElse -> else OptEqTerm : #{ type => else, value => '$2' }.
 
 %% query           = literal { ( ";" | ( [CR] LF ) ) literal }
 Query -> Literal                  : [ '$1' ].
-Query -> Query Literal            : '$1' ++ [ '$2' ].
+% Query -> Query Literal            : '$1' ++ [ '$2' ].
 Query -> Query semi_colon Literal : '$1' ++ [ '$3' ].
 
 
@@ -117,7 +116,7 @@ RefArgBrack -> lsbrace Object rsbrace : '$2'.
 RefArgBrack -> lsbrace Set rsbrace    : '$2'.
 
 %% literal         = ( some-decl | expr | "not" expr ) { with-modifier }
-%% literal             ::= ( some-decl | literal-expr | "not" literal-expr )  with-modifier*
+%% literal       ::= ( some-decl | literal-expr | "not" literal-expr )  with-modifier*
 
 Literal -> SomeDecl                      : #{ type => some_decl, value => '$1' }.
 Literal -> SomeDecl WithModifiers        : #{ type => some_decl, value => '$1', with => '$2' }.
@@ -206,3 +205,4 @@ token_to_value({Category, Pos, Value}) ->
 
 maybe_add(_Key, undefined, Map) -> Map;
 maybe_add(Key, Value, Map) -> Map#{ Key => Value}.
+
